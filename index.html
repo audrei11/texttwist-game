@@ -196,6 +196,115 @@
             100% { transform: scale(1); }
         }
 
+        /* ── LEADERBOARD PANEL ── */
+        .leaderboard-panel {
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 14px 12px;
+            min-width: 190px;
+            flex-shrink: 0;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        .lb-header {
+            font-size: 0.68rem;
+            color: #d9c27e;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .lb-list { display: flex; flex-direction: column; gap: 5px; max-height: 420px; overflow-y: auto; }
+
+        .lb-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid transparent;
+            transition: background 0.2s;
+        }
+
+        .lb-row.me {
+            background: rgba(139,124,246,0.14);
+            border-color: rgba(139,124,246,0.4);
+        }
+
+        .lb-rank {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: rgba(255,255,255,0.4);
+            min-width: 18px;
+        }
+
+        .lb-row:nth-child(1) .lb-rank { color: #f4d581; }
+        .lb-row:nth-child(2) .lb-rank { color: #d7dbe6; }
+        .lb-row:nth-child(3) .lb-rank { color: #d9955f; }
+
+        .lb-name {
+            flex: 1;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #eef0ff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .lb-score {
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #f4d581;
+        }
+
+        .lb-empty {
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.35);
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        /* ── NAME ENTRY MODAL ── */
+        .name-input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1.5px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.05);
+            color: #eef0ff;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 1px;
+            margin-bottom: 18px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .name-input:focus {
+            border-color: #8b7cf6;
+            box-shadow: 0 0 14px rgba(139,124,246,0.35);
+        }
+        .name-input::placeholder { color: rgba(255,255,255,0.3); }
+
+        .name-sub {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
         /* ── GAME CENTER ── */
         .game-center {
             flex: 1;
@@ -534,7 +643,9 @@
         /* ── MOBILE ── */
         @media (max-width: 600px) {
             .main { flex-direction: column; padding: 8px; gap: 10px; }
-            .word-panel { width: 100%; min-width: unset; padding: 10px; }
+            .word-panel, .leaderboard-panel { width: 100%; min-width: unset; padding: 10px; }
+            .leaderboard-panel { order: 3; }
+            .lb-list { max-height: 180px; }
             .length-group { margin-bottom: 8px; }
             .word-slots { flex-direction: row; flex-wrap: wrap; gap: 5px; }
             .word-slot-row { flex-shrink: 0; }
@@ -598,6 +709,14 @@
         </div>
 
     </div>
+
+    <!-- RIGHT: Leaderboard -->
+    <div class="leaderboard-panel" id="leaderboardPanel">
+        <div class="lb-header">🏆 Top Ranks</div>
+        <div class="lb-list" id="lbList">
+            <div class="lb-empty">Loading…</div>
+        </div>
+    </div>
 </div>
 
 <!-- GAME OVER -->
@@ -607,6 +726,16 @@
         <div class="ov-score">Score: <strong id="finalScoreEl">0</strong></div>
         <div id="missedSection"></div>
         <button class="btn-next" onclick="nextLevel()">NEXT LEVEL</button>
+    </div>
+</div>
+
+<!-- NAME ENTRY -->
+<div class="overlay show" id="nameOverlay">
+    <div class="overlay-card">
+        <div class="ov-title">TEXT TWIST</div>
+        <div class="name-sub">Enter your name to join the leaderboard</div>
+        <input type="text" class="name-input" id="nameInput" placeholder="Your name" maxlength="16" autocomplete="off">
+        <button class="btn-next" onclick="submitName()">PLAY</button>
     </div>
 </div>
 
@@ -934,6 +1063,71 @@ const BASE_WORDS = [
 let currentLetters=[], tileOrder=[], currentWord=[], usedIndices=[];
 let foundWords=new Set(), validWords=[], wordSlotMap={};
 let score=0, timeLeft=60, timerID=null, level=1, msgTimeout=null;
+let playerName = localStorage.getItem('tt_playerName') || '';
+
+// ─── Player Name ──────────────────────────────────────────────────────────────
+function submitName() {
+    const input = document.getElementById('nameInput');
+    const name = input.value.trim().slice(0, 16);
+    if (!name) { input.focus(); return; }
+    playerName = name;
+    localStorage.setItem('tt_playerName', name);
+    document.getElementById('nameOverlay').classList.remove('show');
+    startRound();
+}
+
+document.getElementById('nameInput').addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') submitName();
+});
+
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
+function renderLeaderboard(board) {
+    const list = document.getElementById('lbList');
+    if (!board || board.length === 0) {
+        list.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>';
+        return;
+    }
+    list.innerHTML = board.map((e, i) => {
+        const mine = playerName && e.name.toLowerCase() === playerName.toLowerCase();
+        return `<div class="lb-row${mine ? ' me' : ''}">
+            <div class="lb-rank">${i + 1}</div>
+            <div class="lb-name">${escapeHtml(e.name)}</div>
+            <div class="lb-score">${e.score}</div>
+        </div>`;
+    }).join('');
+}
+
+function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+async function fetchLeaderboard() {
+    try {
+        const res = await fetch('/api/leaderboard');
+        if (!res.ok) throw new Error('bad response');
+        renderLeaderboard(await res.json());
+    } catch {
+        document.getElementById('lbList').innerHTML = '<div class="lb-empty">Leaderboard unavailable</div>';
+    }
+}
+
+async function submitScore(finalScore) {
+    if (!playerName || finalScore <= 0) return;
+    try {
+        const res = await fetch('/api/leaderboard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: playerName, score: finalScore }),
+        });
+        if (res.ok) renderLeaderboard(await res.json());
+    } catch {}
+}
+
+fetchLeaderboard();
+setInterval(fetchLeaderboard, 15000);
 
 function canForm(word, letters) {
     const f={};
@@ -1063,6 +1257,7 @@ function endRound() {
             <div class="missed-chips">${missed.slice(0,16).map(w=>`<span class="missed-chip">${w}</span>`).join('')}</div>`;
     }
     document.getElementById('overlay').classList.add('show');
+    submitScore(score);
 }
 
 function nextLevel() { level++; startRound(); }
@@ -1188,6 +1383,7 @@ function showPopup(pts) {
 
 // ─── Keyboard ─────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
+    if (document.getElementById('nameOverlay').classList.contains('show')) return;
     if (e.key==='Enter')     { submitWord(); return; }
     if (e.key==='Backspace') {
         if (currentWord.length>0) {
@@ -1207,7 +1403,12 @@ document.addEventListener('keydown', e => {
 // ─── PWA ─────────────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 
-startRound();
+if (playerName) {
+    document.getElementById('nameOverlay').classList.remove('show');
+    startRound();
+} else {
+    document.getElementById('nameInput').focus();
+}
 </script>
 </body>
 </html>
