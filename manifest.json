@@ -1,6 +1,6 @@
 {
-  "name": "Text Twist",
-  "short_name": "Text Twist",
+  "name": "Audrei Word Twist",
+  "short_name": "Word Twist",
   "description": "Unscramble letters to find as many words as you can!",
   "start_url": "/",
   "display": "standalone",
